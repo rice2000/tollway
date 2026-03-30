@@ -1,0 +1,21 @@
+{
+  "name": "@tollway/core",
+  "version": "0.0.1",
+  "description": "Config parsing, pricing engine, and quota tracking for Tollway",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./config": "./src/config.js",
+    "./pricing": "./src/pricing.js",
+    "./quota": "./src/quota.js",
+    "./analytics": "./src/analytics.js"
+  },
+  "scripts": {
+    "test": "node --test src/core.test.js"
+  },
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

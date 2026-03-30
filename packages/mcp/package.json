@@ -1,0 +1,23 @@
+{
+  "name": "@tollway/mcp",
+  "version": "0.0.1",
+  "description": "MCP server wrapper for Tollway — monetize MCP tools via x402 on Stellar",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "dependencies": {
+    "@tollway/core": "*"
+  },
+  "peerDependencies": {
+    "@modelcontextprotocol/sdk": ">=1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@modelcontextprotocol/sdk": { "optional": false }
+  },
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

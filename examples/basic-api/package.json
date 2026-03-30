@@ -1,0 +1,14 @@
+{
+  "name": "tollway-example-basic-api",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "@tollway/core": "*",
+    "@tollway/express": "*",
+    "express": "^4.21.0"
+  }
+}

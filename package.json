@@ -1,0 +1,19 @@
+{
+  "name": "tollway",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Turnkey x402/MPP monetization SDK for SaaS and MCP servers on Stellar",
+  "workspaces": [
+    "packages/*",
+    "examples/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "keywords": ["x402", "stellar", "mcp", "micropayments", "saas", "monetization"],
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

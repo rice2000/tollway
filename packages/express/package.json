@@ -1,0 +1,28 @@
+{
+  "name": "@tollway/express",
+  "version": "0.0.1",
+  "description": "Express middleware for Tollway — one-line x402 monetization on Stellar",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "dependencies": {
+    "@tollway/core": "*"
+  },
+  "peerDependencies": {
+    "express": ">=4.0.0",
+    "@x402/core": ">=0.1.0",
+    "@x402/express": ">=0.1.0",
+    "@x402/stellar": ">=0.1.0"
+  },
+  "peerDependenciesMeta": {
+    "@x402/core": { "optional": false },
+    "@x402/express": { "optional": false },
+    "@x402/stellar": { "optional": false }
+  },
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
