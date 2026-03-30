@@ -11,9 +11,22 @@
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present"
   },
-  "keywords": ["x402", "stellar", "mcp", "micropayments", "saas", "monetization"],
+  "keywords": [
+    "x402",
+    "stellar",
+    "mcp",
+    "micropayments",
+    "saas",
+    "monetization"
+  ],
   "license": "Apache-2.0",
   "engines": {
     "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@x402/core": "^2.8.0",
+    "@x402/express": "^2.8.0",
+    "@x402/stellar": "^2.8.0",
+    "express": "^5.2.1"
   }
 }

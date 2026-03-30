@@ -21,7 +21,7 @@ describe("parseConfig", () => {
     const config = parseConfig(validBase);
     assert.equal(config.payTo, validBase.payTo);
     assert.equal(config.network, "stellar:testnet");
-    assert.ok(config.facilitatorUrl.includes("openzeppelin"));
+    assert.equal(config.facilitatorUrl, "https://channels.openzeppelin.com/testnet");
     assert.equal(config.pricing["GET /api/search"].type, "static");
     assert.equal(config.pricing["GET /api/search"].price, 0.002);
     assert.equal(config.pricing["GET /api/status"].type, "free");

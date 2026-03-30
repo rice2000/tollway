@@ -21,6 +21,9 @@
     "@x402/express": { "optional": false },
     "@x402/stellar": { "optional": false }
   },
+  "scripts": {
+    "test": "node --test src/express.test.js"
+  },
   "license": "Apache-2.0",
   "engines": {
     "node": ">=20.0.0"

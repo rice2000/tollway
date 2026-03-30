@@ -197,7 +197,7 @@ export class TollwayMCP {
                       payTo: this._rawConfig.payTo,
                       facilitatorUrl:
                         this._rawConfig.facilitatorUrl ||
-                        "https://channels.openzeppelin.com/x402/testnet",
+                        "https://channels.openzeppelin.com/testnet",
                       resource: name,
                     },
                   }),

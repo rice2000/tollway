@@ -30,8 +30,8 @@ const VALID_NETWORKS = [
 ];
 
 const DEFAULT_FACILITATOR_URLS = {
-  "stellar:testnet": "https://channels.openzeppelin.com/x402/testnet",
-  "stellar:pubnet": "https://channels.openzeppelin.com/x402",
+  "stellar:testnet": "https://channels.openzeppelin.com/testnet",
+  "stellar:pubnet": "https://channels.openzeppelin.com/mainnet",
 };
 
 /**
