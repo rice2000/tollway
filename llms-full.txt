@@ -1,0 +1,365 @@
+# Tollway — Full Documentation
+
+Turnkey x402 monetization for SaaS APIs and MCP servers, settling on Stellar USDC.
+
+---
+
+## What it is
+
+Tollway replaces subscription billing with per-request payments. Developers add one config file and one middleware call; Tollway handles pricing logic, free-tier quotas, payment challenges, verification, and analytics.
+
+The x402 protocol lets any HTTP endpoint return a 402 Payment Required response with machine-readable payment instructions. An x402-aware client (human or AI agent) pays in USDC on Stellar and retries. Tollway is the opinionated layer that makes this practical for real APIs and MCP servers.
+
+**Why Stellar:** ~$0.00001 transaction fees make micropayments work economically. The Built on Stellar facilitator (powered by OpenZeppelin Relayer + Channels) covers network fees entirely.
+
+---
+
+## Packages
+
+| Package | npm | Description |
+|---------|-----|-------------|
+| `@tollway/express` | `npm install @tollway/express` | Express middleware |
+| `@tollway/mcp` | `npm install @tollway/mcp` | MCP server wrapper |
+| `@tollway/core` | (peer dep) | Config, pricing, quota, analytics |
+
+Peer dependencies for Express: `@x402/core @x402/express @x402/stellar`
+Peer dependency for MCP: `@modelcontextprotocol/sdk`
+
+---
+
+## Quickstart: Express API
+
+```js
+// 1. Install
+// npm install @tollway/express @x402/core @x402/express @x402/stellar
+
+// 2. tollway.config.js
+export default {
+  payTo: "G...your_stellar_address...",    // required: Stellar public key
+  network: "stellar:testnet",              // or "stellar:pubnet"
+  pricing: {
+    "GET /api/search":    { price: "$0.002" },
+    "POST /api/generate": { price: "$0.01"  },
+    "GET /api/status":    "free",
+  },
+  freeTier: {
+    enabled: true,
+    requestsPerDay: 100,
+    identifyBy: "ip",   // or "wallet"
+  },
+};
+
+// 3. server.js
+import express from "express";
+import { tollway } from "@tollway/express";
+import config from "./tollway.config.js";
+
+const app = express();
+app.use(express.json());
+app.use(tollway(config));   // ← entire integration
+
+app.get("/api/search", (req, res) => {
+  // req.tollway tells you how the request was authorized:
+  //   { paid: false, freeTier: true, remaining: 42 }  — free tier
+  //   { paid: true, priceUsd: 0.002 }                 — paid
+  res.json({ results: [] });
+});
+```
+
+---
+
+## Quickstart: MCP Server
+
+```js
+// npm install @tollway/mcp @modelcontextprotocol/sdk
+
+import { TollwayMCP } from "@tollway/mcp";
+
+const server = new TollwayMCP({
+  payTo: "G...your_stellar_address...",
+  network: "stellar:testnet",
+});
+
+server.freeTool("health", {
+  description: "Health check",
+  handler: async () => ({ status: "ok" }),
+});
+
+server.paidTool("search", {
+  price: "$0.002",
+  description: "Search the knowledge base",
+  inputSchema: {
+    type: "object",
+    properties: { query: { type: "string" } },
+    required: ["query"],
+  },
+  handler: async ({ query }) => {
+    return { results: ["..."] };
+  },
+});
+
+await server.start();  // connects stdio transport
+```
+
+---
+
+## Config reference
+
+### `payTo` (required)
+Stellar public key starting with G, 56 characters. This address receives all USDC revenue.
+
+```js
+payTo: "GABC...XYZ"
+```
+
+### `network`
+`"stellar:testnet"` (default) or `"stellar:pubnet"`. Controls which Stellar network payments settle on and which facilitator endpoint is used.
+
+### `facilitatorUrl`
+Override the x402 facilitator URL. Defaults:
+- testnet: `https://channels.openzeppelin.com/testnet`
+- pubnet: `https://channels.openzeppelin.com/mainnet`
+
+### `pricing` (required)
+Map of `"METHOD /path"` strings to pricing rules. Supports:
+
+```js
+pricing: {
+  // Static price
+  "GET /api/search": { price: "$0.002", description: "optional" },
+
+  // Always free
+  "GET /api/status": "free",
+
+  // Dynamic — function receives the Express req object
+  "POST /api/analyze": (req) => {
+    return { price: req.body.depth === "deep" ? "$0.05" : "$0.01" };
+  },
+
+  // Wildcard — matches /api/users/anything
+  "GET /api/users/*": { price: "$0.001" },
+
+  // Parameterized — matches /api/items/123
+  "GET /api/items/:id": { price: "$0.003" },
+}
+```
+
+Route matching priority: exact match first, then pattern matching.
+Unpriced routes (not in the map) always pass through without charge.
+
+### `freeTier`
+```js
+freeTier: {
+  enabled: true,
+  requestsPerDay: 100,    // free requests before 402 kicks in
+  identifyBy: "ip",       // "ip" | "wallet"
+}
+```
+`identifyBy: "wallet"` uses the Stellar wallet address from the payment header (falls back to IP if no payment header present). `identifyBy: "ip"` uses the request IP address.
+
+### `analytics`
+```js
+analytics: {
+  enabled: true,
+  logger: "console",        // "console" | false
+  webhookUrl: "https://...", // optional: POST events to this URL
+}
+```
+Events emitted: `request.free`, `request.paid`, `request.blocked`, `request.unpriced`, `payment.settled`, `payment.failed`.
+
+---
+
+## req.tollway context
+
+After Tollway processes a request, it attaches context to `req.tollway`:
+
+```js
+// Free tier request
+req.tollway = {
+  paid: false,
+  freeTier: true,
+  remaining: 42,    // free requests remaining today
+}
+
+// Paid request (payment verified)
+req.tollway = {
+  paid: true,
+  freeTier: false,
+  priceUsd: 0.002,
+  route: "GET /api/search",
+}
+```
+
+For unpriced and free routes, `req.tollway` is not set.
+
+---
+
+## 402 response format
+
+When payment is required, Tollway returns:
+
+**Status:** `402 Payment Required`
+
+**Header:** `X-Payment-Required` (JSON)
+
+**Body:** (same JSON as header)
+
+```json
+{
+  "x402Version": 1,
+  "accepts": {
+    "scheme": "exact",
+    "price": "$0.002",
+    "network": "stellar:testnet",
+    "payTo": "G...your_address..."
+  },
+  "description": "Search the knowledge base",
+  "resource": "GET /api/search"
+}
+```
+
+An x402-enabled client reads this, signs a Soroban authorization entry for the specified USDC amount, and retries the request with a `payment-signature` header. Tollway verifies the signature via the facilitator and calls `next()` if valid.
+
+---
+
+## Payment flow (step by step)
+
+```
+Client                    Tollway Middleware              Stellar Network
+  │                              │                               │
+  │── GET /api/search ──────────>│                               │
+  │                              │ resolve pricing               │
+  │                              │ check free tier quota         │
+  │                              │ quota exhausted               │
+  │<── 402 + X-Payment-Required ─│                               │
+  │                              │                               │
+  │ [client signs Soroban auth]  │                               │
+  │── GET /api/search ──────────>│                               │
+  │   payment-signature: ...     │                               │
+  │                              │── verify payment ────────────>│
+  │                              │<── valid ─────────────────────│
+  │                              │── next() ─────────────────────│
+  │<── 200 OK ───────────────────│                               │
+  │                              │── settle (async) ────────────>│
+  │                              │   (~5s Stellar settlement)    │
+```
+
+---
+
+## TollwayMCP API
+
+```js
+const server = new TollwayMCP(config);
+
+// Register a free tool
+server.freeTool(name, {
+  description: string,
+  inputSchema?: JSONSchema,      // defaults to { type: "object" }
+  handler: async (params) => any,
+});
+
+// Register a paid tool
+server.paidTool(name, {
+  price: string | number,        // e.g. "$0.01" or 0.01
+  description: string,
+  inputSchema?: JSONSchema,
+  handler: async (params) => any,
+});
+
+// Build and return the McpServer instance (without starting)
+const mcpServer = await server.build();
+
+// Build and start with stdio transport
+await server.start();
+```
+
+A built-in `tollway_pricing` tool is automatically registered, listing all tools and their prices.
+
+---
+
+## Analytics events
+
+Subscribe to analytics events programmatically:
+
+```js
+import { createAnalytics } from "@tollway/core";
+
+const analytics = createAnalytics(config.analytics);
+
+analytics.on("request.paid", ({ route, priceUsd, timestamp }) => {
+  console.log(`Earned $${priceUsd} on ${route}`);
+});
+
+analytics.on("payment.settled", ({ route, txHash }) => {
+  console.log(`Settled: ${txHash}`);
+});
+```
+
+Or receive all events via webhook (POST with JSON body):
+
+```js
+analytics: {
+  webhookUrl: "https://your-dashboard.example.com/events",
+}
+```
+
+---
+
+## Custom quota store (Redis, etc.)
+
+The default quota store is in-memory. Swap it for Redis or any store that implements the adapter interface:
+
+```js
+import { createQuotaTracker } from "@tollway/core";
+
+const redisStore = {
+  async get(callerId, dayKey) {
+    return parseInt(await redis.get(`quota:${callerId}:${dayKey}`)) || 0;
+  },
+  async increment(callerId, dayKey) {
+    await redis.incr(`quota:${callerId}:${dayKey}`);
+    await redis.expire(`quota:${callerId}:${dayKey}`, 86400);
+  },
+};
+
+const quota = createQuotaTracker(config.freeTier, redisStore);
+```
+
+---
+
+## Environment variables
+
+```bash
+STELLAR_PAY_TO=G...     # your Stellar public key
+STELLAR_NETWORK=stellar:testnet   # or stellar:pubnet
+PORT=3001
+```
+
+---
+
+## Running tests
+
+```bash
+npm test                  # run all workspace tests
+npm run demo              # interactive CLI demo
+node demo/index.js        # same as above
+```
+
+---
+
+## Repository structure
+
+```
+tollway/
+  packages/
+    core/           @tollway/core — config, pricing, quota, analytics
+    express/        @tollway/express — Express middleware
+    mcp/            @tollway/mcp — MCP server wrapper
+  examples/
+    basic-api/      Express API example
+    basic-mcp/      MCP server example
+  demo/             Interactive CLI demo
+  CHANGELOG.md
+  README.md
+  llms.txt
+```

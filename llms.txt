@@ -1,0 +1,57 @@
+# Tollway
+
+> Turnkey x402 monetization for SaaS APIs and MCP servers, settling on Stellar USDC. One config file, one middleware call — your API earns from both human users and AI agents.
+
+Tollway wraps the x402 payment protocol with a config-driven layer that handles pricing rules, free-tier quotas, analytics, and payment verification. Developers drop in one middleware call; Tollway handles the rest.
+
+**Why Stellar?** Transaction fees of ~$0.00001 make micropayments economically viable. A $0.001 API call nets ~$0.001. The Built on Stellar facilitator (OpenZeppelin) covers network fees entirely.
+
+## Packages
+
+- [Express middleware source](packages/express/src/index.js): `@tollway/express` — drop-in Express middleware. Import `tollway`, pass your config, done.
+- [MCP wrapper source](packages/mcp/src/index.js): `@tollway/mcp` — wraps `@modelcontextprotocol/sdk` with `paidTool()` and `freeTool()` helpers.
+- [Core source](packages/core/src/index.js): `@tollway/core` — config parsing, pricing engine, quota tracking, analytics. Framework-agnostic.
+
+## Guides
+
+- [README](README.md): Overview, quickstart for both Express and MCP, config reference, how it works
+- [Changelog](CHANGELOG.md): Version history
+
+## Examples
+
+- [Express API example](examples/basic-api/server.js): Full working Express server with static, dynamic, and free pricing plus free tier
+- [Express config example](examples/basic-api/tollway.config.js): Standalone config file showing all pricing patterns
+- [MCP server example](examples/basic-mcp/server.js): MCP server with paid and free tools, Stellar data tools
+
+## Config reference
+
+The developer's `tollway.config.js` is the single source of truth:
+
+- `payTo` (required): Stellar public key (G...) that receives USDC revenue
+- `network`: `"stellar:testnet"` or `"stellar:pubnet"` — defaults to testnet
+- `facilitatorUrl`: Override the x402 facilitator — defaults to Built on Stellar (OpenZeppelin)
+- `pricing` (required): Map of `"METHOD /path"` → pricing rule
+  - `{ price: "$0.01" }` — static price
+  - `"free"` — always free
+  - `(req) => ({ price: "$0.05" })` — dynamic pricing function
+  - Supports wildcard `"GET /api/*"` and parameterized `"GET /api/:id"` patterns
+- `freeTier`: `{ enabled, requestsPerDay, identifyBy: "ip"|"wallet" }`
+- `analytics`: `{ enabled, logger: "console", webhookUrl? }`
+
+## Payment flow
+
+1. Request arrives
+2. Tollway resolves the pricing rule for the route
+3. Free/unpriced routes pass through immediately
+4. Paid routes check the free-tier quota
+5. If quota allows → serve for free, decrement quota, set `req.tollway = { paid: false, freeTier: true, remaining: N }`
+6. If quota exhausted → return HTTP 402 with `X-Payment-Required` header containing Stellar payment instructions
+7. x402-enabled client pays in USDC on Stellar (~5s settlement) and retries with `payment-signature` header
+8. Tollway verifies payment via facilitator → calls `next()`, sets `req.tollway = { paid: true }`
+9. Analytics events emitted at every step
+
+## Optional
+
+- [Tests](packages/core/src/core.test.js): Unit tests for config, pricing, and quota
+- [Express integration tests](packages/express/src/express.test.js): Integration tests for the full middleware
+- [Demo](demo/index.js): Interactive CLI demo — run with `node demo/index.js`
